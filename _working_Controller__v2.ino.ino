@@ -1,4 +1,5 @@
 //Notes: 
+//48 6.5 36 X Y Z of Target 1.
 //Major Concern for input validation. Things will probably work when it shouldn't and vice-versa. Do we need to impement user validation? Ans: We don't.
 //Delays scattered throughout because the serial.read() can read faster than the rate of the buffer being filled.
 //Stepper 1 is the azimuth axis and stepper 2 is the elevation access   
@@ -18,6 +19,7 @@
 #include <Arduino.h>
 #include "A4988.h"
 #include "BasicStepperDriver.h"
+#include "Adafruit_SHTC3.h"
 
 //Motor steps per revolution. Most steppers are 200 steps or 1.8 degrees/step
 #define MOTOR_STEPS 200
@@ -26,7 +28,7 @@
 // Since microstepping is set externally, make sure this matches the selected mode
 // If it doesn't, the motor will move at a different RPM than chosen
 // 1=full step, 2=half step etc.
-#define MICROSTEPS 1
+#define MICROSTEPS 16
 
 // All the wires needed for full functionality
 #define STEP1 14
@@ -35,11 +37,15 @@
 #define STEP2 15
 #define DIR2 33
 
+#define SDAPIN 23
+#define SCLPIN 22
 
 
+//Azimuth
 #define LIMITSWITCH1 13
+//Elevation
 #define LIMITSWITCH2 12
-#define LIMITSWITCH3 999
+#define LIMITSWITCH3 27
 
 
 // 2-wire basic config, microstepping is hardwired on the driver. Creating Stepper object
@@ -48,16 +54,32 @@ public:
   long stepsTaken=0; //Keeps track of steps taken from home position on Motor
   byte dirPin;
   byte stepPin;
-  byte limitSwitchPin;
+  byte limitSwitchPin1;byte limitSwitchPin2;
 
-  stepperMotor(byte dirPin, byte stepPin, byte limitPin) : BasicStepperDriver(MOTOR_STEPS, dirPin, stepPin){
-    this->limitSwitchPin = limitPin;
-    pinMode(limitSwitchPin, INPUT_PULLUP); //initialize limit switch pin
+  stepperMotor(byte dirPin, byte stepPin, byte limitPin1, byte limitPin2) : BasicStepperDriver(MOTOR_STEPS, dirPin, stepPin){
+    this->limitSwitchPin1 = limitPin1;
+    this->limitSwitchPin2 = limitPin2;
+    pinMode(limitSwitchPin1, INPUT_PULLUP); //initialize limit switch pin
+    pinMode(limitSwitchPin2, INPUT_PULLUP);
   }
 };
 
-stepperMotor stepper1(DIR1, STEP1, LIMITSWITCH1);
-stepperMotor stepper2(DIR2, STEP2, LIMITSWITCH2);
+stepperMotor stepper1(DIR1, STEP1, LIMITSWITCH1,999); //Azimuth Motor
+stepperMotor stepper2(DIR2, STEP2, LIMITSWITCH2, LIMITSWITCH3); //Elevation Motor
+
+Adafruit_SHTC3 shtc3 = Adafruit_SHTC3();
+// #ifdef __cplusplus
+//  extern "C" {
+// #endif
+//
+//  uint8_t temprature_sens_read();
+//
+//#ifdef __cplusplus
+//}
+//#endif
+//
+//uint8_t temprature_sens_read();
+
 
 enum states {
   NONE,
@@ -75,8 +97,8 @@ enum states {
 states state;
 
 //Prototypes
-void controllerStep(stepperMotor *stepper, long steps, float rpm);
-void controllerRotate(stepperMotor *stepper, float deg, float rpm);
+void controllerStep(stepperMotor *stepper, long steps, float rpm=RPM);
+void controllerRotate(stepperMotor *stepper, float deg, float rpm=RPM);
  
 // the setup function runs once when you press reset or power the board
 void setup() {
@@ -87,7 +109,13 @@ void setup() {
   //initialize stepper motor
   stepper1.begin(RPM, MICROSTEPS);  
   stepper2.begin(RPM, MICROSTEPS); 
-  
+
+  Wire.begin(SDAPIN,SCLPIN);
+  if (! shtc3.begin()) {
+    Serial.println("Couldn't find SHTC3");
+    while (1) delay(1);
+  }
+  Serial.println("Found SHTC3 sensor");
   
   Serial.println("Controller is Ready");
   //Old requirement:::Serial.println("Ensure that line ending is set to both Newline and Carriage Return");//A single command is assumed to end when those characters are read.
@@ -114,6 +142,7 @@ void loop(){
   Serial.println((String)"Stepper_1 Steps Taken: " + stepper1.stepsTaken);
   Serial.println((String)"Stepper_2 Steps Taken: " + stepper2.stepsTaken);
   delay(0.1*1000);
+  
 
 
   // energize coils - the motor will hold position
@@ -151,9 +180,9 @@ void Homing(long timeout=20){ // Homing position 0 Elevation and 0 Azimuth
         }
 //        stepper1.setRPM(30);
 //        stepper1.move(10);
-          controllerStep(&stepper1,-1,30);delay(10);
+          controllerStep(&stepper1,-2);delay(2*300/MICROSTEPS/30);//Rapid Movement
         
-        if (digitalRead(stepper1.limitSwitchPin) == LOW){ //Assuming Normally Open limit switch, when the pin is low the switch is closed and the pin will read low. When it reads low, the homing position is achieved
+        if (digitalRead(stepper1.limitSwitchPin1) == LOW){ //Assuming Normally Open limit switch, when the pin is low the switch is closed and the pin will read low. When it reads low, the homing position is achieved
           Home1_init = true;
           Serial.println("Stepper 1 Rapid Homing Complete.");  
         }
@@ -163,14 +192,15 @@ void Homing(long timeout=20){ // Homing position 0 Elevation and 0 Azimuth
       delay(1*1000);
 //      stepper1.move(-20);
 //      stepper1.setRPM(5);
-      controllerStep(&stepper1,20,30);delay(500);
-      while(digitalRead(stepper1.limitSwitchPin) == HIGH){//Maybe switch bounce or floating voltage is an issue
-        controllerStep(&stepper1,-1,5);delay(60);
+      controllerStep(&stepper1,20*MICROSTEPS,5);delay(500);//Backing up for Precision Movement
+      while(digitalRead(stepper1.limitSwitchPin1) == HIGH){//Maybe switch bounce or floating voltage is an issue
+        controllerStep(&stepper1,-2);delay(2*300/MICROSTEPS/5);//Precision Movement
       }
       delay(50);//Button Debounce
       Serial.println("Home of stepper 1 Found");
       Home1_final=true;
       //For future changes. Adjust homing such that at 0 zero steps taken for each motor represents 0 elevations and 0 azmituth (to represtent by marker on heliostat)
+      controllerStep(&stepper1,-3584,120);
       stepper1.stepsTaken = 0;
     }
 
@@ -184,9 +214,9 @@ void Homing(long timeout=20){ // Homing position 0 Elevation and 0 Azimuth
         }
 //        stepper1.setRPM(30);
 //        stepper1.move(10);
-          controllerStep(&stepper2,-1,30);delay(10);
+          controllerStep(&stepper2,-2);delay(2*300/MICROSTEPS/30);//Rapid Movement
         
-        if (digitalRead(stepper2.limitSwitchPin) == LOW){ //Assuming Normally Open limit switch, when the pin is low the switch is closed and the pin will read low. When it reads low, the homing position is achieved
+        if (digitalRead(stepper2.limitSwitchPin1) == LOW){ //Assuming Normally Open limit switch, when the pin is low the switch is closed and the pin will read low. When it reads low, the homing position is achieved
           Home2_init = true;
           Serial.println("Stepper 2 Rapid Homing Complete.");  
         }
@@ -196,14 +226,15 @@ void Homing(long timeout=20){ // Homing position 0 Elevation and 0 Azimuth
       delay(1*1000);
 //      stepper1.move(-20);
 //      stepper1.setRPM(5);
-      controllerStep(&stepper2,20,30);delay(500);
-      while(digitalRead(stepper2.limitSwitchPin) == HIGH){//Maybe switch bounce or floating voltage is an issue
-        controllerStep(&stepper2,-1,5);delay(60);
+      controllerStep(&stepper2,20*MICROSTEPS);delay(500);//Backing up for Precision Movement
+      while(digitalRead(stepper2.limitSwitchPin1) == HIGH){//Maybe switch bounce or floating voltage is an issue
+        controllerStep(&stepper2,-2);delay(2*300/MICROSTEPS/5);//Precision Movement
       }
       delay(50);//Button Debounce
-      Serial.println("Home of stepper 1 Found");
+      Serial.println("Home of stepper 2 Found");
       Home2_final=true;
       //For future changes. Adjust homing such that at 0 zero steps taken for each motor represents 0 elevations and 0 azmituth (to represtent by marker on heliostat)
+      controllerRotate(&stepper2,80.5,120);
       stepper2.stepsTaken = 0;
     }
     
@@ -213,24 +244,24 @@ void Homing(long timeout=20){ // Homing position 0 Elevation and 0 Azimuth
 }
 
 
-void controllerStep(stepperMotor *stepper, long steps, float rpm=RPM){
+void controllerStep(stepperMotor *stepper, long steps, float rpm){
   stepper->setRPM(rpm);
   stepper->move(steps);
   stepper->stepsTaken = stepper->stepsTaken + steps;
 }
 
-void controllerRotate(stepperMotor *stepper, float deg, float rpm=RPM){
-  long steps = stepper->calcStepsForRotation(deg);
+void controllerRotate(stepperMotor *stepper, float deg, float rpm){
+  long steps = stepper->calcStepsForRotation(deg*5);
   controllerStep(stepper,steps,rpm);
 }
 
 void azimuth(float az){
-  long stepNo = stepper1.calcStepsForRotation(az) - (stepper1.stepsTaken)%200;
+  long stepNo = stepper1.calcStepsForRotation(az*5) - (stepper1.stepsTaken)%(200*MICROSTEPS*5);
   controllerStep(&stepper1,stepNo);
 }
 
 void elevation(float el){
-  long stepNo = stepper2.calcStepsForRotation(el) - (stepper2.stepsTaken)%200;
+  long stepNo = stepper2.calcStepsForRotation(el*5) - (stepper2.stepsTaken)%(200*MICROSTEPS*5);
   controllerStep(&stepper2,stepNo);
 }
 
@@ -242,8 +273,16 @@ azimuth(0);//Honestly probably not necessary since the mirror is flat....but it'
 };
 
 void temperature(){
-  //Need to play around with esp32 board 1st.
-  Serial.println("Temperature protocol not implemented"); 
+  sensors_event_t humidity, temp;
+  shtc3.getEvent(&humidity, &temp);
+  
+  Serial.print("Temperature: ");
+  Serial.print(temp.temperature);
+  Serial.println(" C");
+
+  Serial.print("Humidity: "); Serial.print(humidity.relative_humidity); Serial.println("% rH");
+  delay(5*1000);
+  
 };
 
 void powerDown(){
@@ -338,7 +377,7 @@ void processState(){
       danger();
 
       break;
-    case 'T':
+    case TEMP:
       temperature();
 
       break;
