@@ -1,4 +1,5 @@
 //Notes: 
+//Subtract 2.7cm from Z
 //48 6.5 36 X Y Z of Target 1.
 //Major Concern for input validation. Things will probably work when it shouldn't and vice-versa. Do we need to impement user validation? Ans: We don't.
 //Delays scattered throughout because the serial.read() can read faster than the rate of the buffer being filled.
@@ -200,8 +201,10 @@ void Homing(long timeout=20){ // Homing position 0 Elevation and 0 Azimuth
       Serial.println("Home of stepper 1 Found");
       Home1_final=true;
       //For future changes. Adjust homing such that at 0 zero steps taken for each motor represents 0 elevations and 0 azmituth (to represtent by marker on heliostat)
+      
       controllerStep(&stepper1,-3584,120);
-      stepper1.stepsTaken = 0;
+      controllerRotate(&stepper1,-90,120);
+      stepper1.stepsTaken = 107;
     }
 
    
@@ -234,11 +237,14 @@ void Homing(long timeout=20){ // Homing position 0 Elevation and 0 Azimuth
       Serial.println("Home of stepper 2 Found");
       Home2_final=true;
       //For future changes. Adjust homing such that at 0 zero steps taken for each motor represents 0 elevations and 0 azmituth (to represtent by marker on heliostat)
-      controllerRotate(&stepper2,80.5,120);
-      stepper2.stepsTaken = 0;
+      
+      //controllerRotate(&stepper2,81.35,120);
+      float elevationOffset = 78.9;
+      stepper2.stepsTaken = stepper2.calcStepsForRotation((90-elevationOffset)*5)-112;
+      elevation(90);
     }
     
- bailout:
+ bailout: 
  Serial.println("Exiting Homing Procedure"); 
  delay(3*1000);      
 }
@@ -268,8 +274,8 @@ void elevation(float el){
 void danger(){
 Serial.println("Danger: Moving to safe position"); 
 elevation(90);
-azimuth(0);//Honestly probably not necessary since the mirror is flat....but it's here if needed.
-
+azimuth(90);//Honestly probably not necessary since the mirror is flat....but it's here if needed.
+delay(5*1000);
 };
 
 void temperature(){
@@ -287,7 +293,8 @@ void temperature(){
 
 void powerDown(){
   //Need clarification on this one...do want to power down and possibly damage it or something else
-  Serial.println("Power down protocol not implemented");   
+  Serial.println("Power down protocol not implemented");  
+  delay(5*1000); 
 };
 
 void processData(byte data){
