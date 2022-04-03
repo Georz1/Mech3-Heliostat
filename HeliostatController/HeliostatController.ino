@@ -1,6 +1,4 @@
 //Notes: 
-//Subtract 2.7cm from Z
-//48 6.5 36 X Y Z of Target 1.
 //Major Concern for input validation. Things will probably work when it shouldn't and vice-versa. Do we need to impement user validation? Ans: We don't.
 //Delays scattered throughout because the serial.read() can read faster than the rate of the buffer being filled.
 //Stepper 1 is the azimuth axis and stepper 2 is the elevation access   
