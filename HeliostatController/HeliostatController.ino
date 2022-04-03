@@ -30,12 +30,13 @@
 #define MICROSTEPS 16
 
 // All the wires needed for full functionality
+//Azimuth
 #define STEP1 14
 #define DIR1 32
-
+//Elevation
 #define STEP2 15
 #define DIR2 33
-
+//I2C Communication
 #define SDAPIN 23
 #define SCLPIN 22
 
@@ -49,36 +50,68 @@
 
 // 2-wire basic config, microstepping is hardwired on the driver. Creating Stepper object
 class stepperMotor : public BasicStepperDriver {
-public:  
+public:
+  string name;  
   long stepsTaken=0; //Keeps track of steps taken from home position on Motor
   byte dirPin;
   byte stepPin;
-  byte limitSwitchPin1;byte limitSwitchPin2;
+  byte limitSwitchPin1, limitSwitchPin2;
+  bool homeRapid, homePrecision;
 
-  stepperMotor(byte dirPin, byte stepPin, byte limitPin1, byte limitPin2) : BasicStepperDriver(MOTOR_STEPS, dirPin, stepPin){
+  stepperMotor(string name, byte dirPin, byte stepPin, byte limitPin1, byte limitPin2) : BasicStepperDriver(MOTOR_STEPS, dirPin, stepPin){
     this->limitSwitchPin1 = limitPin1;
     this->limitSwitchPin2 = limitPin2;
+    this->name = name;
     pinMode(limitSwitchPin1, INPUT_PULLUP); //initialize limit switch pin
     pinMode(limitSwitchPin2, INPUT_PULLUP);
   }
+
+  void homing(float timeout = 60){
+    homeRapid = false; homePrecision = false;
+
+    Serial.println("Homing Routine: "+ this->name);
+    float Time0 = millis(); // Get time when homing Routine was launched
+    float TimeErr = timeout*1000; //Time in secs until homing function returns error because limit switch was not found
+    
+     while (!homePrecision){
+      while(!homeRapid){
+        if (millis()-Time0 >= TimeErr){
+          Serial.println("Error 404: Home Not Found...I'm Lost, Help: "+this->name);
+          goto bailout;// Skips to end of homing procedure to end it.
+        }
+
+        controllerStep(this,-2);delay(300/MICROSTEPS/30);//Rapid Movement
+        
+        if (digitalRead(this.limitSwitchPin1) == LOW){ //Assuming Normally Open limit switch, when the pin is low the switch is closed and the pin will read low. When it reads low, the homing position is achieved
+          homeRapid = true;
+          Serial.println(this->name +": Rapid Homing Complete.");  
+        }
+  
+      }//End of rapid homing
+
+      Serial.println("Initializing " +this->name + " Precision Homing");
+      delay(1*1000);
+      controllerStep(this,20*MICROSTEPS,5);delay(500);//Backing up for Precision Movement
+      while(digitalRead(this->limitSwitchPin1) == HIGH){//Maybe switch bounce or floating voltage is an issue
+        controllerStep(this,-2);delay(300/MICROSTEPS/5);//Precision Movement
+      }
+      delay(50);//Button Debounce
+      Serial.println("Home of "this->name" Found");
+      homePrecision=true;
+      //For future changes. Adjust homing such that at 0 zero steps taken for each motor represents 0 elevations and 0 azmituth (to represtent by marker on heliostat)
+      
+      controllerStep(this,-3584,120);
+      controllerRotate(this,-90,120);
+      this->stepsTaken = 107;
+    }
+
+  }
 };
 
-stepperMotor stepper1(DIR1, STEP1, LIMITSWITCH1,999); //Azimuth Motor
-stepperMotor stepper2(DIR2, STEP2, LIMITSWITCH2, LIMITSWITCH3); //Elevation Motor
+stepperMotor stepper1("Azimuth Motor",DIR1, STEP1, LIMITSWITCH1,999); //Azimuth Motor
+stepperMotor stepper2("Eleveation Motor",DIR2, STEP2, LIMITSWITCH2, LIMITSWITCH3); //Elevation Motor
 
 Adafruit_SHTC3 shtc3 = Adafruit_SHTC3();
-// #ifdef __cplusplus
-//  extern "C" {
-// #endif
-//
-//  uint8_t temprature_sens_read();
-//
-//#ifdef __cplusplus
-//}
-//#endif
-//
-//uint8_t temprature_sens_read();
-
 
 enum states {
   NONE,
@@ -117,7 +150,6 @@ void setup() {
   Serial.println("Found SHTC3 sensor");
   
   Serial.println("Controller is Ready");
-  //Old requirement:::Serial.println("Ensure that line ending is set to both Newline and Carriage Return");//A single command is assumed to end when those characters are read.
 }
 
 
