@@ -3,6 +3,8 @@
 //Delays scattered throughout because the serial.read() can read faster than the rate of the buffer being filled.
 //Stepper 1 is the azimuth axis and stepper 2 is the elevation access   
 //Limit switches are also used as a safety feature.....motors should stop when limit switches are hit...particularly the elevation motor
+//C1: 8.6312, 41.9724
+//C2: -11.9536, 35.2776
 /*Motor Info
   Coils for Motor
   A+ Black
@@ -179,7 +181,7 @@ void Homing(long timeout=20){ // Homing position 0 Elevation and 0 Azimuth
         }
 //        stepper1.setRPM(30);
 //        stepper1.move(10);
-          controllerStep(&stepper1,-2);delay(2*300/MICROSTEPS/30);//Rapid Movement
+          controllerStep(&stepper1,2);delay(2*300/MICROSTEPS/30);//Rapid Movement
         
         if (digitalRead(stepper1.limitSwitchPin1) == LOW){ //Assuming Normally Open limit switch, when the pin is low the switch is closed and the pin will read low. When it reads low, the homing position is achieved
           Home1_init = true;
@@ -191,18 +193,19 @@ void Homing(long timeout=20){ // Homing position 0 Elevation and 0 Azimuth
       delay(1*1000);
 //      stepper1.move(-20);
 //      stepper1.setRPM(5);
-      controllerStep(&stepper1,20*MICROSTEPS,5);delay(500);//Backing up for Precision Movement
+      controllerStep(&stepper1,-5*MICROSTEPS,5);delay(500);//Backing up for Precision Movement
       while(digitalRead(stepper1.limitSwitchPin1) == HIGH){//Maybe switch bounce or floating voltage is an issue
-        controllerStep(&stepper1,-2);delay(2*300/MICROSTEPS/5);//Precision Movement
+        controllerStep(&stepper1,2);delay(2*300/MICROSTEPS/5);//Precision Movement
       }
       delay(50);//Button Debounce
       Serial.println("Home of stepper 1 Found");
       Home1_final=true;
       //For future changes. Adjust homing such that at 0 zero steps taken for each motor represents 0 elevations and 0 azmituth (to represtent by marker on heliostat)
       
-      controllerStep(&stepper1,-3584,120);
-      controllerRotate(&stepper1,-90,120);
-      stepper1.stepsTaken = 107;
+      controllerStep(&stepper1,-2556-295+590,120);
+      controllerStep(&stepper1,-320+80,120);
+      //controllerRotate(&stepper1,-90,120);
+      stepper1.stepsTaken = 0;
     }
 
    
@@ -238,8 +241,10 @@ void Homing(long timeout=20){ // Homing position 0 Elevation and 0 Azimuth
       
       //controllerRotate(&stepper2,81.35,120);
       float elevationOffset = 78.9;
-      stepper2.stepsTaken = stepper2.calcStepsForRotation((90-elevationOffset)*5)-112;
+      stepper2.stepsTaken = stepper2.calcStepsForRotation((90-elevationOffset)*5)-112+8-73+73+73;
       elevation(90);
+      //controllerStep(&stepper2,5927-4000,120);
+  
     }
     
  bailout: 
