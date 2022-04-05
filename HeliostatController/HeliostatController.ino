@@ -3,8 +3,10 @@
 //Delays scattered throughout because the serial.read() can read faster than the rate of the buffer being filled.
 //Stepper 1 is the azimuth axis and stepper 2 is the elevation access   
 //Limit switches are also used as a safety feature.....motors should stop when limit switches are hit...particularly the elevation motor
-//C1: 8.6312, 41.9724
-//C2: -11.9536, 35.2776
+//C1: 8.6312, 131.9724
+//C3: -11.9536, 125.2776
+//B1: 5.1475, 129.876987
+//B3: -16.5404, 126.7051
 /*Motor Info
   Coils for Motor
   A+ Black
@@ -193,7 +195,7 @@ void Homing(long timeout=20){ // Homing position 0 Elevation and 0 Azimuth
       delay(1*1000);
 //      stepper1.move(-20);
 //      stepper1.setRPM(5);
-      controllerStep(&stepper1,-5*MICROSTEPS,5);delay(500);//Backing up for Precision Movement
+      controllerStep(&stepper1,-20*MICROSTEPS,5);delay(500);//Backing up for Precision Movement
       while(digitalRead(stepper1.limitSwitchPin1) == HIGH){//Maybe switch bounce or floating voltage is an issue
         controllerStep(&stepper1,2);delay(2*300/MICROSTEPS/5);//Precision Movement
       }
@@ -202,7 +204,7 @@ void Homing(long timeout=20){ // Homing position 0 Elevation and 0 Azimuth
       Home1_final=true;
       //For future changes. Adjust homing such that at 0 zero steps taken for each motor represents 0 elevations and 0 azmituth (to represtent by marker on heliostat)
       
-      controllerStep(&stepper1,-2556-295+590,120);
+      controllerStep(&stepper1,-2556-295+590-150-220+61,120);
       controllerStep(&stepper1,-320+80,120);
       //controllerRotate(&stepper1,-90,120);
       stepper1.stepsTaken = 0;
@@ -241,6 +243,7 @@ void Homing(long timeout=20){ // Homing position 0 Elevation and 0 Azimuth
       
       //controllerRotate(&stepper2,81.35,120);
       float elevationOffset = 78.9;
+      controllerStep(&stepper2,47-25,120);
       stepper2.stepsTaken = stepper2.calcStepsForRotation((90-elevationOffset)*5)-112+8-73+73+73;
       elevation(90);
       //controllerStep(&stepper2,5927-4000,120);
