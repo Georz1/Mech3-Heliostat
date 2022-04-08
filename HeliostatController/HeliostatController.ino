@@ -24,7 +24,7 @@
 #include "BasicStepperDriver.h"
 #include "Adafruit_SHTC3.h"
 
-//Motor steps per revolution. Most steppers are 200 steps or 1.8 degrees/step
+//Motor steps per revolution. Most steppers are 200 steps or 1.8 degrees/step---With microstepping, it now takes 16000 steps to rotate 360 degrees
 #define MOTOR_STEPS 200
 #define RPM 120
 
@@ -273,6 +273,7 @@ void azimuth(float az){
 }
 
 void elevation(float el){
+  el = 180-el;
   long stepNo = stepper2.calcStepsForRotation(el*5) - (stepper2.stepsTaken)%(200*MICROSTEPS*5);
   controllerStep(&stepper2,stepNo);
 }
