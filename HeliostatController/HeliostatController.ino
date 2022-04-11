@@ -7,6 +7,7 @@
 //C3: -11.9536, 125.2776
 //B1: 5.1475, 129.876987
 //B3: -16.5404, 126.7051
+//-26,67
 /*Motor Info
   Coils for Motor
   A+ Black
@@ -204,8 +205,8 @@ void Homing(long timeout=20){ // Homing position 0 Elevation and 0 Azimuth
       Home1_final=true;
       //For future changes. Adjust homing such that at 0 zero steps taken for each motor represents 0 elevations and 0 azmituth (to represtent by marker on heliostat)
       
-      controllerStep(&stepper1,-2556-295+590-150-220+61,120);
-      controllerStep(&stepper1,-320+80,120);
+      controllerStep(&stepper1,-2556-295+590-150-220+61-1368,120);
+      controllerStep(&stepper1,-320+80-205,120);
       //controllerRotate(&stepper1,-90,120);
       stepper1.stepsTaken = 0;
     }
