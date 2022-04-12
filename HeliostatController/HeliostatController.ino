@@ -205,7 +205,7 @@ void Homing(long timeout=20){ // Homing position 0 Elevation and 0 Azimuth
       Home1_final=true;
       //For future changes. Adjust homing such that at 0 zero steps taken for each motor represents 0 elevations and 0 azmituth (to represtent by marker on heliostat)
       
-      controllerStep(&stepper1,-2556-295+590-150-220+61-1368,120);
+      controllerStep(&stepper1,-2556-295+590-150-220+61-1368-75,120);
       controllerStep(&stepper1,-320+80-205,120);
       //controllerRotate(&stepper1,-90,120);
       stepper1.stepsTaken = 0;
@@ -271,12 +271,18 @@ void controllerRotate(stepperMotor *stepper, float deg, float rpm){
 void azimuth(float az){
   long stepNo = stepper1.calcStepsForRotation(az*5) - (stepper1.stepsTaken)%(200*MICROSTEPS*5);
   controllerStep(&stepper1,stepNo);
+  long corraz = -1.80538*az+32.85106;
+  delay(1000);
+  controllerStep(&stepper1,corraz);
 }
 
 void elevation(float el){
   el = 180-el;
   long stepNo = stepper2.calcStepsForRotation(el*5) - (stepper2.stepsTaken)%(200*MICROSTEPS*5);
   controllerStep(&stepper2,stepNo);
+  long correl = 8.119519*(180-el)-1063.57;
+  delay(1000);
+  controllerStep(&stepper2,correl);
 }
 
 void danger(){
