@@ -3,8 +3,8 @@
 //Delays scattered throughout because the serial.read() can read faster than the rate of the buffer being filled.
 //Stepper 1 is the azimuth axis and stepper 2 is the elevation access   
 //Limit switches are also used as a safety feature.....motors should stop when limit switches are hit...particularly the elevation motor
-//C1: 8.6312, 131.9724
-//C3: -11.9536, 125.2776
+//C1: 7.1182, 47.1637
+//C3: -12.2683, 53.3217
 //B1: 5.1475, 129.876987
 //B3: -16.5404, 126.7051
 //-26,67
@@ -27,7 +27,7 @@
 
 //Motor steps per revolution. Most steppers are 200 steps or 1.8 degrees/step---With microstepping, it now takes 16000 steps to rotate 360 degrees
 #define MOTOR_STEPS 200
-#define RPM 120
+#define RPM 5
 
 // Since microstepping is set externally, make sure this matches the selected mode
 // If it doesn't, the motor will move at a different RPM than chosen
@@ -100,6 +100,7 @@ enum states {
 //Global Variables
 states state;
 
+
 //Prototypes
 void controllerStep(stepperMotor *stepper, long steps, float rpm=RPM);
 void controllerRotate(stepperMotor *stepper, float deg, float rpm=RPM);
@@ -122,7 +123,8 @@ void setup() {
   Serial.println("Found SHTC3 sensor");
   
   Serial.println("Controller is Ready");
-  //Old requirement:::Serial.println("Ensure that line ending is set to both Newline and Carriage Return");//A single command is assumed to end when those characters are read.
+
+  
 }
 
 
@@ -143,11 +145,13 @@ void loop(){
 
 
   
-  Serial.println((String)"Stepper_1 Steps Taken: " + stepper1.stepsTaken);
-  Serial.println((String)"Stepper_2 Steps Taken: " + stepper2.stepsTaken);
+  Serial.print((String)"Stepper_1 Steps Taken: " + stepper1.stepsTaken + "\tAzimuth: ");
+  //Serial.println(stepper1.stepsTaken/16000.*360,5);
+  Serial.println(stepper1.stepsTaken/16000.*360 - corraz(stepper1.stepsTaken/16000.*360),5);
+  Serial.print((String)"Stepper_2 Steps Taken: " + stepper2.stepsTaken + "\tElevation: ");
+  Serial.println((180-(stepper2.stepsTaken/16000.*360)) - correl(stepper2.stepsTaken/16000.*360),5);
   delay(0.1*1000);
   
-
 
   // energize coils - the motor will hold position
   //stepper1.enable();
@@ -184,7 +188,7 @@ void Homing(long timeout=20){ // Homing position 0 Elevation and 0 Azimuth
         }
 //        stepper1.setRPM(30);
 //        stepper1.move(10);
-          controllerStep(&stepper1,2);delay(2*300/MICROSTEPS/30);//Rapid Movement
+          controllerStep(&stepper1,2,30);delay(2*300/MICROSTEPS/30);//Rapid Movement
         
         if (digitalRead(stepper1.limitSwitchPin1) == LOW){ //Assuming Normally Open limit switch, when the pin is low the switch is closed and the pin will read low. When it reads low, the homing position is achieved
           Home1_init = true;
@@ -221,7 +225,7 @@ void Homing(long timeout=20){ // Homing position 0 Elevation and 0 Azimuth
         }
 //        stepper1.setRPM(30);
 //        stepper1.move(10);
-          controllerStep(&stepper2,-2);delay(2*300/MICROSTEPS/30);//Rapid Movement
+          controllerStep(&stepper2,-2,30);delay(2*300/MICROSTEPS/30);//Rapid Movement
         
         if (digitalRead(stepper2.limitSwitchPin1) == LOW){ //Assuming Normally Open limit switch, when the pin is low the switch is closed and the pin will read low. When it reads low, the homing position is achieved
           Home2_init = true;
@@ -246,7 +250,7 @@ void Homing(long timeout=20){ // Homing position 0 Elevation and 0 Azimuth
       float elevationOffset = 78.9;
       controllerStep(&stepper2,47-25,120);
       stepper2.stepsTaken = stepper2.calcStepsForRotation((90-elevationOffset)*5)-112+8-73+73+73;
-      elevation(90);
+      controllerStep(&stepper2,stepper2.calcStepsForRotation(90.*5) - (stepper2.stepsTaken)%(200*MICROSTEPS*5),120);//elevation(90);
       //controllerStep(&stepper2,5927-4000,120);
   
     }
@@ -268,21 +272,31 @@ void controllerRotate(stepperMotor *stepper, float deg, float rpm){
   controllerStep(stepper,steps,rpm);
 }
 
+float corraz(float az){
+  float temp =  -0.51582*az+23.67173;
+  return 0.2;//temp/16000.*360;
+}
+
 void azimuth(float az){
   long stepNo = stepper1.calcStepsForRotation(az*5) - (stepper1.stepsTaken)%(200*MICROSTEPS*5);
   controllerStep(&stepper1,stepNo);
-  long corraz = -1.80538*az+32.85106;
-  delay(1000);
-  controllerStep(&stepper1,corraz);
+  //corraz = -0.51582*az+23.67173;
+  delay(500);
+  //controllerStep(&stepper1,corraz);
+}
+
+float correl(float el){
+  float temp =  2.435856*(el)-313.57;
+  return -0.3;//temp/16000.*360;
 }
 
 void elevation(float el){
   el = 180-el;
   long stepNo = stepper2.calcStepsForRotation(el*5) - (stepper2.stepsTaken)%(200*MICROSTEPS*5);
   controllerStep(&stepper2,stepNo);
-  long correl = 8.119519*(180-el)-1063.57;
-  delay(1000);
-  controllerStep(&stepper2,correl);
+  //correl = 2.435856*(el)-313.57;
+  delay(500);
+  //controllerStep(&stepper2,correl);
 }
 
 void danger(){
