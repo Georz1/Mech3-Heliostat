@@ -147,9 +147,9 @@ void loop(){
   
   Serial.print((String)"Stepper_1 Steps Taken: " + stepper1.stepsTaken + "\tAzimuth: ");
   //Serial.println(stepper1.stepsTaken/16000.*360,5);
-  Serial.println(stepper1.stepsTaken/16000.*360 - corraz(stepper1.stepsTaken/16000.*360),5);
+  Serial.println(stepper1.stepsTaken/16000.*360 - 0.2,5);
   Serial.print((String)"Stepper_2 Steps Taken: " + stepper2.stepsTaken + "\tElevation: ");
-  Serial.println((180-(stepper2.stepsTaken/16000.*360)) - correl(stepper2.stepsTaken/16000.*360),5);
+  Serial.println((180-(stepper2.stepsTaken/16000.*360)) + 0.2,5);
   delay(0.1*1000);
   
 
@@ -272,31 +272,23 @@ void controllerRotate(stepperMotor *stepper, float deg, float rpm){
   controllerStep(stepper,steps,rpm);
 }
 
-float corraz(float az){
-  float temp =  -0.51582*az+23.67173;
-  return 0.2;//temp/16000.*360;
-}
 
 void azimuth(float az){
   long stepNo = stepper1.calcStepsForRotation(az*5) - (stepper1.stepsTaken)%(200*MICROSTEPS*5);
   controllerStep(&stepper1,stepNo);
-  //corraz = -0.51582*az+23.67173;
+  long corraz = -0.51582*az+23.67173;
   delay(500);
-  //controllerStep(&stepper1,corraz);
+  controllerStep(&stepper1,corraz);
 }
 
-float correl(float el){
-  float temp =  2.435856*(el)-313.57;
-  return -0.3;//temp/16000.*360;
-}
 
 void elevation(float el){
   el = 180-el;
   long stepNo = stepper2.calcStepsForRotation(el*5) - (stepper2.stepsTaken)%(200*MICROSTEPS*5);
   controllerStep(&stepper2,stepNo);
-  //correl = 2.435856*(el)-313.57;
+  long correl = 2.435856*(el)-303.57;
   delay(500);
-  //controllerStep(&stepper2,correl);
+  controllerStep(&stepper2,correl);
 }
 
 void danger(){
@@ -321,7 +313,7 @@ void temperature(){
 
 void powerDown(){
   //Need clarification on this one...do want to power down and possibly damage it or something else
-  Serial.println("Power down protocol not implemented");  
+  Serial.println("This is the Power Down Stub");  
   delay(5*1000); 
 };
 
